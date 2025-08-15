@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tomato Clock</title>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root {
+      --bg: #0f1115;
+      --card: #171923;
+      --text: #eaeef7;
+      --muted: #9aa4b2;
+      --accent: #ff5a54;
+      --shadow: 0 10px 30px rgba(0,0,0,.25);
+      --ring: #2a2f3a;
+    }
+    [data-theme="light"] {
+      --bg: #fbfbfd;
+      --card: #ffffff;
+      --text: #0f1115;
+      --muted: #576071;
+      --accent: #e63946;
+      --ring: #e9edf5;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      min-height: 100%;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+    .card {
+      width: min(680px, 95vw);
+      background: var(--card);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,.08);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .mode {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--ring);
+      background: transparent;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent) 30%, transparent);
+    }
+    .title {
+      font-size: 14px;
+      color: var(--muted);
+      margin: 0;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      max-width: 60%;
+    }
+    .timer {
+      text-align: center;
+      margin: 22px 0 8px;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 1px;
+      font-size: clamp(48px, 16vw, 96px);
+    }
+    .subline {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .bar {
+      height: 8px;
+      width: 100%;
+      border-radius: 999px;
+      background: var(--ring);
+      overflow: hidden;
+      position: relative;
+    }
+    .bar > .fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.3s linear;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    button {
+      -webkit-tap-highlight-color: transparent;
+      appearance: none;
+      border: 1px solid var(--ring);
+      background: transparent;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--accent);
+      border-color: color-mix(in oklab, var(--accent) 60%, black);
+      color: white;
+    }
+    button:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .badges {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .badge {
+      border: 1px solid var(--ring);
+      padding: 6px 8px;
+      border-radius: 999px;
+    }
+    .sr-only { 
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; 
+    }
+    a.link {
+      color: var(--muted);
+      text-decoration: none;
+      border-bottom: 1px dashed var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" role="group" aria-label="Tomato Clock">
+      <div class="header">
+        <span class="mode"><span class="dot" aria-hidden="true"></span><span id="modeLabel">Focus</span></span>
+        <p class="title" id="title">Tomato Clock</p>
+      </div>
+
+      <div class="timer" id="timeLeft" aria-live="polite">25:00</div>
+      <div class="subline" id="subline">Round <b id="round">1</b><span id="ofRounds">/4</span> • Auto: <span id="autoText">off</span></div>
+      <div class="bar" aria-hidden="true"><div class="fill" id="progress"></div></div>
+
+      <div class="controls">
+        <button id="toggle" class="primary" aria-label="Start or pause (Space)">Start</button>
+        <button id="reset" aria-label="Reset (R)">Reset</button>
+        <button id="skip" aria-label="Skip (S)">Skip</button>
+        <button id="mode" aria-label="Switch mode">Mode</button>
+      </div>
+
+      <div class="row">
+        <div class="badges" id="badges"></div>
+        <div>Keys: <b>Space</b> start/pause • <b>R</b> reset • <b>S</b> skip</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Utilities -----------------------------------------------------------
+    const $ = (id) => document.getElementById(id);
+    const qs = new URLSearchParams(location.search);
+
+    const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+    const asInt = (v, d) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) ? n : d;
+    };
+    const asBool = (v, d=false) => {
+      if (v === null) return d;
+      const s = String(v).toLowerCase();
+      return ["1","true","yes","on"].includes(s) ? true :
+             ["0","false","no","off"].includes(s) ? false : d;
+    };
+
+    // --- Options from URL (with defaults) ----------------------------------
+    const opts = {
+      focus: clamp(asInt(qs.get("focus"), 25), 1, 180),   // minutes
+      short: clamp(asInt(qs.get("short"), 5), 1, 60),
+      long:  clamp(asInt(qs.get("long"), 15), 1, 120),
+      rounds: clamp(asInt(qs.get("rounds"), 4), 1, 12),
+      auto: asBool(qs.get("auto"), false),
+      theme: (qs.get("theme") || "auto").toLowerCase(),   // "light" | "dark" | "auto"
+      accent: qs.get("accent") || "",
+      sound: (qs.get("sound") || "ding").toLowerCase(),   // "ding" | "off"
+      title: qs.get("title") || "Tomato Clock"
+    };
+
+    // Theme & accent
+    if (opts.theme === "light") document.documentElement.setAttribute("data-theme", "light");
+    if (opts.theme === "dark")  document.documentElement.setAttribute("data-theme", "dark");
+    if (opts.accent) document.documentElement.style.setProperty("--accent", opts.accent);
+    document.title = opts.title;
+
+    // ---- State machine -----------------------------------------------------
+    const Mode = { Focus: "Focus", Short: "Short Break", Long: "Long Break" };
+    let mode = Mode.Focus;
+    let round = 1;
+    let running = false;
+    let remaining = opts.focus * 60; // seconds
+    let duration = remaining;
+    let ticker = null;
+    let userInteracted = false;
+
+    const storageKey = "tomato-clock-state-v1";
+    function saveState() {
+      try {
+        const data = { mode, round, remaining, duration, running };
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      } catch {}
+    }
+    function loadState() {
+      try {
+        const s = localStorage.getItem(storageKey);
+        if (!s) return;
+        const data = JSON.parse(s);
+        mode = data.mode || mode;
+        round = data.round || round;
+        remaining = typeof data.remaining === "number" ? data.remaining : remaining;
+        duration = typeof data.duration === "number" ? data.duration : duration;
+        running = !!data.running;
+      } catch {}
+    }
+
+    // --- Audio (beep without external files) --------------------------------
+    let audioCtx = null;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    function beep(times=2) {
+      if (opts.sound === "off") return;
+      try {
+        ensureAudio();
+        const gap = 120;
+        for (let i = 0; i < times; i++) {
+          const t0 = audioCtx.currentTime + i * (0.15 + gap/1000);
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(880, t0);
+          gain.gain.setValueAtTime(0.001, t0);
+          gain.gain.exponentialRampToValueAtTime(0.3, t0 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.15);
+          osc.connect(gain).connect(audioCtx.destination);
+          osc.start(t0);
+          osc.stop(t0 + 0.16);
+        }
+      } catch {}
+    }
+
+    // --- UI helpers ---------------------------------------------------------
+    function fmt(sec) {
+      const s = Math.max(0, Math.floor(sec));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+    }
+    function updateUI() {
+      $("modeLabel").textContent = mode;
+      $("timeLeft").textContent = fmt(remaining);
+      $("round").textContent = String(round);
+      $("ofRounds").textContent = "/" + String(opts.rounds);
+      $("autoText").textContent = opts.auto ? "on" : "off";
+      $("toggle").textContent = running ? "Pause" : "Start";
+      $("toggle").classList.toggle("primary", !running);
+      $("progress").style.width = `${((duration - remaining) / duration) * 100}%`;
+      const badges = [
+        `Focus ${opts.focus}m`,
+        `Short ${opts.short}m`,
+        `Long ${opts.long}m`,
+        `Rounds ${opts.rounds}`
+      ];
+      $("badges").innerHTML = badges.map(b => `<span class="badge">${b}</span>`).join("");
+    }
+    function setMode(next) {
+      mode = next;
+      if (mode === Mode.Focus) {
+        duration = remaining = opts.focus * 60;
+      } else if (mode === Mode.Short) {
+        duration = remaining = opts.short * 60;
+      } else {
+        duration = remaining = opts.long * 60;
+      }
+      updateUI();
+      document.title = `${fmt(remaining)} • ${mode} • ${opts.title}`;
+    }
+
+    function nextModeAfter(endMode) {
+      if (endMode === Mode.Focus) {
+        // Increment completed focus rounds
+        const completed = round;
+        if (completed % opts.rounds === 0) return Mode.Long;
+        return Mode.Short;
+      } else {
+        // After any break, advance to next focus round
+        round = round % opts.rounds + 1;
+        return Mode.Focus;
+      }
+    }
+
+    function tick() {
+      remaining -= 1;
+      if (remaining <= 0) {
+        beep(3);
+        const ended = mode;
+        const next = nextModeAfter(ended);
+        setMode(next);
+        if (opts.auto) {
+          start();
+        } else {
+          pause();
+        }
+      }
+      updateUI();
+      saveState();
+      document.title = `${fmt(remaining)} • ${mode} • ${opts.title}`;
+    }
+
+    function start() {
+      if (running) return;
+      if (!userInteracted) { userInteracted = true; try { ensureAudio(); } catch {} }
+      running = true;
+      updateUI();
+      ticker = setInterval(tick, 1000);
+      saveState();
+    }
+    function pause() {
+      running = false;
+      if (ticker) clearInterval(ticker);
+      ticker = null;
+      updateUI();
+      saveState();
+    }
+    function reset() {
+      pause();
+      // Reset to start of current mode
+      setMode(mode);
+      updateUI();
+      saveState();
+    }
+    function skip() {
+      pause();
+      const next = nextModeAfter(mode);
+      if (mode === Mode.Focus) {
+        // If skipping focus, keep round the same (don't count it as completed)
+      } else {
+        // If skipping a break, don't advance round again
+      }
+      setMode(next);
+      if (opts.auto) start();
+      saveState();
+    }
+    function switchMode() {
+      pause();
+      if (mode === Mode.Focus) setMode(Mode.Short);
+      else if (mode === Mode.Short) setMode(Mode.Long);
+      else setMode(Mode.Focus);
+      saveState();
+    }
+
+    // Restore state if present (but respect custom URL options for new visitors)
+    loadState();
+    updateUI();
+
+    // Wire up controls
+    $("toggle").addEventListener("click", () => running ? pause() : start());
+    $("reset").addEventListener("click", reset);
+    $("skip").addEventListener("click", skip);
+    $("mode").addEventListener("click", switchMode);
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") { e.preventDefault(); running ? pause() : start(); }
+      if (e.key.toLowerCase() === "r") { e.preventDefault(); reset(); }
+      if (e.key.toLowerCase() === "s") { e.preventDefault(); skip(); }
+    });
+
+    // Initial mode/time if restored state had nonsense
+    if (![Mode.Focus, Mode.Short, Mode.Long].includes(mode)) setMode(Mode.Focus);
+    if (!Number.isFinite(remaining) || remaining < 0) setMode(mode);
+
+    // Immediately sync UI
+    updateUI();
+  </script>
+</body>
+</html>
